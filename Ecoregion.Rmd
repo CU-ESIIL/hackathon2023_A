@@ -1,0 +1,37 @@
+---
+title: "Procure ecoregion data"
+author: "Vaasuki Marupaka"
+date: "2023-11-16"
+output: html_document
+---
+
+```{r}
+install.packages("sf")
+install.packages("rnaturalearth")
+install.packages("dplyr")
+
+# Load required libraries
+library(sf)
+library(rnaturalearth)
+library(dplyr)
+```
+
+```{r}
+# load the shape file for level 2 ecoregion; source: https://www.epa.gov/eco-research/ecoregions-north-america 
+ecoregion <- read_sf("~/Downloads/na_cec_eco_l2/NA_CEC_Eco_Level2.shp") %>% 
+  filter(NA_L2NAME == 'WESTERN CORDILLERA')
+
+usamap <- map_data('state')
+ggplot(usamap) +
+  geom_polygon( aes(x=long, y = lat, group=group), color =  'black', fill = 'white') +
+  #borders(usamap, fill = "black") +
+  geom_sf(ecoregion, mapping = aes(geometry = geometry)) +
+  #scale_fill_gradient(trans = 'log10', low = "orange", high = "blue") +
+  scale_fill_viridis_c(trans = 'log10') +
+  labs(x = "Latitude (in decimal degress)",
+       y = "Longitude (in decimal degrees)",
+       #title = "Map of the United States",
+       title = "WESTERN CORDILLERA ECOREGION IN THE US")
+
+```
+
