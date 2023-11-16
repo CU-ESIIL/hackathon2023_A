@@ -1,0 +1,109 @@
+---
+title: "Retrieve and process satellite imagery"
+format:
+  html:
+    self-contained: true
+    df-print: kable
+---
+
+```{r}
+#| echo: false
+
+knitr::opts_chunk$set(fig.align = "center")
+```
+
+```{r}
+# Specify required packages
+pkgs_required <- c(
+  "dplyr",
+  "tibble",
+  "rstac"
+)
+```
+
+```{r}
+#| include: false
+
+# Check installed packages
+pkgs_installed <- installed.packages()[ , 1]
+
+# Check packages that need to be installed
+pkgs_to_install <- pkgs_required[!(pkgs_required %in% pkgs_installed)]
+
+# Install packages if needed
+if (length(pkgs_to_install) > 0) {
+  install.packages(pkgs_to_install)
+}
+```
+
+```{r}
+# Load packages
+invisible(sapply(pkgs_required, library, character.only = TRUE))
+```
+
+Specify boundary for retrieving satellite imagery:
+
+```{r}
+bounds <- c(xmin = -109, ymin = 37, xmax = -102, ymax = 41)
+```
+
+Connect to Element 84's [Earth Search](https://www.element84.com/earth-search/) STAC API:
+
+```{r}
+# Establish STAC connection
+mystac <- stac("https://earth-search.aws.element84.com/v1")
+
+# Check collection
+mystac %>%
+  collections() %>%
+  get_request()
+```
+
+Retrieve [Sentinel-2](https://sentinel.esa.int/web/sentinel/copernicus/sentinel-2) images (specifically, the [Level-2](https://sentinel.esa.int/web/sentinel/user-guides/sentinel-2-msi/processing-levels/level-2) images, which are the most pre-processed):
+
+```{r}
+# Specify dates
+date_start <- "2020-01-01"
+date_end <- "2020-01-31"
+date_interval <- paste0(c(date_start, date_end), "T00:00:00Z", collapse = "/")
+
+# Fetch items
+(items <- 
+  mystac %>%
+  stac_search(collections = "sentinel-2-l2a",
+              bbox = bounds,
+              datetime = date_interval) %>%
+  post_request() %>%
+  items_fetch(progress = FALSE))
+
+# Filter images based on cloud cover
+items <- items_filter(items, properties[["eo:cloud_cover"]] < 20)
+```
+
+Inspect the item collection:
+
+```{r}
+# Check number of items
+items_length(items)
+
+# Check assets and their descriptions
+(assets <- 
+  lapply(items$features[[1]]$assets, function(x) x$title) %>%
+  unlist() %>%
+  as_tibble(rownames = "asset", .name_repair = "minimal") %>%
+  rename("description" = 2))
+```
+
+Drop the data in `.jp2` format in favor of `.tif` format:
+
+```{r}
+items <- 
+  assets %>%
+  filter(!grepl("jp2", asset)) %>%
+  pull(asset) %>%
+  assets_select(items, asset_names = .)
+```
+
+Prepare the data cube:
+
+(forthcoming, currently experiencing difficulty installing `gdalcubes`)
