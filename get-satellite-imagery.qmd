@@ -10,13 +10,22 @@ format:
 #| echo: false
 
 knitr::opts_chunk$set(fig.align = "center")
+
+Sys.setenv("PROJ_LIB" = "/opt/conda/envs/earth-analytics-python/share/proj")
 ```
 
 ```{r}
 # Specify required packages
 pkgs_required <- c(
   "dplyr",
+  "gdalcubes",
+  "ggplot2",
+  "lubridate",
+  "rnaturalearth",
+  "sf",
+  "stars",
   "tibble",
+  "tidyr",
   "rstac"
 )
 ```
@@ -26,6 +35,8 @@ pkgs_required <- c(
 
 # Check installed packages
 pkgs_installed <- installed.packages()[ , 1]
+
+# Install gdalcubes via terminal if needed: mamba install r-gdalcubes
 
 # Check packages that need to be installed
 pkgs_to_install <- pkgs_required[!(pkgs_required %in% pkgs_installed)]
@@ -41,11 +52,91 @@ if (length(pkgs_to_install) > 0) {
 invisible(sapply(pkgs_required, library, character.only = TRUE))
 ```
 
-Specify boundary for retrieving satellite imagery:
+Specify boundary for retrieving satellite imagery. For now, we will focus on the ecoregion containing the Southern Rocky Mountains:
 
 ```{r}
-bounds <- c(xmin = -109, ymin = 37, xmax = -102, ymax = 41)
+# Download shapefile for Level II ecoregions
+shp <- "downloads/na_cec_eco_l2/NA_CEC_Eco_Level2.shp"
+if (!file.exists(shp)) {
+  temp <- tempfile("ecoregions", fileext = ".zip")
+  download.file(
+    "https://gaftp.epa.gov/EPADataCommons/ORD/Ecoregions/cec_na/na_cec_eco_l2.zip",
+    destfile = temp,
+    method = "wget",
+    extra = "--no-check-certificate",
+    quiet = TRUE
+  )
+  unzip(temp, exdir = "downloads/na_cec_eco_l2")
+}
+
+# Read in ecoregions
+ecoregions <- read_sf(shp)
+
+# Filter to ecoregion of interest
+myregion <- 
+  ecoregions %>%
+  filter(NA_L2NAME == "WESTERN CORDILLERA")
 ```
+
+Retrieve [MTBS](https://www.mtbs.gov/) fire data:
+
+```{r}
+# Download fire boundary data
+shp2 <- "downloads/mtbs_perimeter_data/mtbs_perims_DD.shp"
+if (!file.exists(shp2)) {
+  temp <- tempfile("fires", fileext = ".zip")
+  download.file(
+    "https://edcintl.cr.usgs.gov/downloads/sciweb1/shared/MTBS_Fire/data/composite_data/burned_area_extent_shapefile/mtbs_perimeter_data.zip",
+    destfile = temp,
+    method = "wget",
+    extra = "--no-check-certificate",
+    quiet = TRUE
+  )
+  unzip(temp, exdir = "downloads/mtbs_perimeter_data")
+}
+
+# Read in fire data
+fires <- 
+  read_sf(shp2) %>%
+  st_transform(crs = st_crs(myregion))
+
+# Filter to focal years
+myyear <- 2021
+fires <- 
+  fires %>%
+  filter(year(Ig_Date) == myyear)
+```
+
+Create map:
+
+```{r}
+# Get world map
+world <- 
+  map_data("world") %>%
+  st_as_sf(coords = c("long", "lat"), crs = "EPSG:4326") %>%
+  st_transform(crs = st_crs(myregion)) %>%
+  group_by(group) %>%
+  summarize(geometry = st_combine(geometry)) %>%
+  st_cast("POLYGON")
+
+# Plot
+bbox <- st_bbox(myregion)
+s <- 1.2
+ggplot() +
+  geom_sf(data = world, fill = "gray90") +
+  geom_sf(data = myregion, fill = "lightgreen") +
+  geom_sf(data = fires, fill = "red") +
+  coord_sf(xlim = c(bbox["xmin"]*s, bbox["xmax"]*s),
+           ylim = c(bbox["ymin"]*s, bbox["ymax"]*s)) +
+  theme(panel.background = element_rect(fill = "lightblue")) +
+  labs(x = "Latitude",
+       y = "Longitude",
+       title = "WESTERN CORDILLERA ECOREGION")
+
+# Save
+ggsave("figures/map-ecoregion.png", width = 6, height = 9)
+```
+
 
 Connect to Element 84's [Earth Search](https://www.element84.com/earth-search/) STAC API:
 
@@ -63,15 +154,19 @@ Retrieve [Sentinel-2](https://sentinel.esa.int/web/sentinel/copernicus/sentinel-
 
 ```{r}
 # Specify dates
-date_start <- "2020-01-01"
-date_end <- "2020-01-31"
+date_start <- "2020-07-08"
+date_end <- "2020-07-14"
 date_interval <- paste0(c(date_start, date_end), "T00:00:00Z", collapse = "/")
+
+# Define temporary boundary (for proof of concept)
+bbox <- c(xmin = -122, ymin = 39, xmax = -120, ymax = 41)
 
 # Fetch items
 (items <- 
   mystac %>%
   stac_search(collections = "sentinel-2-l2a",
-              bbox = bounds,
+              bbox = c(bbox[["xmin"]], bbox[["ymin"]],
+                       bbox[["xmax"]], bbox[["ymax"]]),
               datetime = date_interval) %>%
   post_request() %>%
   items_fetch(progress = FALSE))
@@ -104,6 +199,141 @@ items <-
   assets_select(items, asset_names = .)
 ```
 
+Try visualizing some items:
+
+```{r}
+# Specify item to check
+myitem <- 20
+
+# Download thumbnail
+thumbnail <- "downloads/sentinel-2/thumbnail.jpg"
+if (!file.exists(thumbnail)) {
+  href <- items$features[[myitem]]$assets$thumbnail$href
+  download.file(
+    href,
+    destfile = thumbnail,
+    quiet = TRUE
+  )
+}
+
+# Download rededge2
+rededge2 <- "downloads/sentinel-2/rededge2.tif"
+if (!file.exists(rededge2)) {
+  href <- items$features[[myitem]]$assets$rededge2$href
+  download.file(
+    href,
+    destfile = rededge2,
+    quiet = TRUE
+  )
+}
+
+# Read in rededge2 image
+raster_rededge2 <- read_stars(rededge2)
+
+# Plot
+ggplot() +
+  geom_stars(data = raster_rededge2) +
+  scale_fill_viridis_c(option = "A") +
+  coord_cartesian(expand = FALSE, clip = "on") +
+  theme_void() +
+  theme(legend.position = "none")
+
+# Save
+ggsave("figures/sentinel-2-rededge2.png", width = 4, height = 4)
+```
+
 Prepare the data cube:
 
-(forthcoming, currently experiencing difficulty installing `gdalcubes`)
+```{r}
+# Create image collection
+imgs <- stac_image_collection(items$features)
+
+# Define data cube view
+v <- cube_view(
+  srs = "EPSG:4326",
+  dx = 1/60,
+  dy = 1/60,
+  dt = "P1D",
+  aggregation = "mean",
+  resampling = "near",
+  extent = imgs
+)
+
+# Build data cube as stars object
+cube <- 
+  imgs %>%
+  raster_cube(v) %>%
+  select_bands(c("coastal", "blue", "green", "red", "rededge1", "rededge2", 
+                 "rededge3", "nir", "nir08", "nir09", "swir16", "swir22")) %>%
+  st_as_stars()
+
+# Convert to data frame
+cube_df <- as.data.frame(cube)
+
+# Summarize data
+cube_df <- 
+  cube_df %>%
+  drop_na() %>%
+  select(-time) %>%
+  group_by(x, y) %>%
+  summarize_at(vars(-group_cols()), mean) %>%
+  ungroup()
+
+# Save
+saveRDS(cube_df, "data/cube_df.rds")
+```
+
+Let's do some preliminary exploration of the data cube:
+
+```{r}
+# Download MTBS fire ocurrences
+shp3 <- "downloads/mtbs_fod_pts_data/mtbs_FODpoints_DD.shp"
+if (!file.exists(shp3)) {
+  temp <- tempfile("fires", fileext = ".zip")
+  download.file(
+    "https://edcintl.cr.usgs.gov/downloads/sciweb1/shared/MTBS_Fire/data/composite_data/fod_pt_shapefile/mtbs_fod_pts_data.zip",
+    destfile = temp,
+    method = "wget",
+    extra = "--no-check-certificate",
+    quiet = TRUE
+  )
+  unzip(temp, exdir = "downloads/mtbs_fod_pts_data")
+}
+
+# Read in fire occurrence data
+firepts <- 
+  read_sf(shp3) %>%
+  st_transform(crs = st_crs(cube))
+
+# Filter to focal years
+firepts <- 
+  firepts %>%
+  filter(year(Ig_Date) == myyear)
+
+# Extract bands for fire occurrence points
+cube_firepts <- 
+  cube %>%
+  st_extract(firepts)
+
+# Convert to data frame
+cube_firepts_df <- 
+  cube_firepts %>%
+  as.data.frame() %>%
+  drop_na() %>%
+  select(-time) %>%
+  group_by(geometry) %>%
+  summarize_at(vars(-group_cols()), mean) %>%
+  ungroup()
+
+# There don't look to be enough points for this to be useful
+
+# Plot points
+ggplot(cube_df, aes(x = red/1e4, y = nir09/1e4)) +
+  geom_point(size = 1, alpha = 0.2, shape = 16) +
+  labs(x = "Red", y = "Near-infrared") +
+  theme_bw() +
+  theme(panel.grid = element_blank())
+
+# Save
+ggsave("figures/red-nir-scatter.png", width = 6, height = 4.5)
+```

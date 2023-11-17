@@ -6,3 +6,6 @@
 
 # Jupyter Notebook
 .ipynb_checkpoints
+
+# File system
+downloads/*
