@@ -96,8 +96,7 @@ animation <- ggplot() +
   #scale_fill_viridis_c(trans = 'log10') +
   #labs(x = "Latitude (in decimal degress)",
   #    y = "Longitude (in decimal degrees)") +
-  #theme(axis.text = element_text(size = 12),
-  #      axis.title = element_text(size = 14)) +
+  #theme(axis.text = element_blank()) +
   facet_wrap(~decade)             
   # coord_sf(crs = 'EPSG:4326', datum = NA) +
   # coord_quickmap() +
