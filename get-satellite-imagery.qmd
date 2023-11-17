@@ -327,12 +327,19 @@ cube_firepts_df <-
 
 # There don't look to be enough points for this to be useful
 
+# Load data with clusters
+cube_df <- 
+  read.csv("data/cube_df_kmeans.csv") %>%
+  mutate(kmeans50 = factor(kmeans50))
+
 # Plot points
 ggplot(cube_df, aes(x = red/1e4, y = nir09/1e4)) +
-  geom_point(size = 1, alpha = 0.2, shape = 16) +
+  geom_point(aes(color = kmeans50), size = 1, alpha = 0.5, shape = 16) +
   labs(x = "Red", y = "Near-infrared") +
+  scale_color_viridis_d(option = "B") +
   theme_bw() +
-  theme(panel.grid = element_blank())
+  theme(panel.grid = element_blank(),
+        legend.position = "none")
 
 # Save
 ggsave("figures/red-nir-scatter.png", width = 6, height = 4.5)
