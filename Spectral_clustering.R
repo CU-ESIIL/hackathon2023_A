@@ -103,7 +103,7 @@ local_max_dunn
 ### Add it back in to data frame
 spectral_samples_k<-spectral_samples
 spectral_samples_k$kmeans50<-fit_spectra[[50]]$cluster
-write.csv("~/data-store/hackathon2023_A/data/cube_df_kmeans.csv")
+write.csv(spectral_samples_k, "data/cube_df_kmeans.csv")
 
 spectral_samples_k_spatial<-spectral_samples_k
 coordinates(spectral_samples_k_spatial)<-~ spectral_samples_k$x + spectral_samples_k$y
