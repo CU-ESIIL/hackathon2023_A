@@ -9,11 +9,16 @@ output: html_document
 install.packages("sf")
 install.packages("rnaturalearth")
 install.packages("dplyr")
+install.packages("gganimate")
 
 # Load required libraries
 library(sf)
+library(tidyverse)
 library(rnaturalearth)
 library(dplyr)
+library(lubridate)
+library(gganimate)
+library(maps)
 ```
 
 ```{r}
@@ -32,6 +37,118 @@ ggplot(usamap) +
        y = "Longitude (in decimal degrees)",
        #title = "Map of the United States",
        title = "WESTERN CORDILLERA ECOREGION IN THE US")
+
+```
+
+```{r}
+USA_map <- map_data('usa')
+ggplot(USA_map) +
+  geom_polygon( aes(x=long, y = lat, group=group), color =  'black', fill = 'white') +
+  #borders(usamap, fill = "black") +
+  geom_sf(ecoregion, mapping = aes(geometry = geometry),  fill = 'orange', color = 'black', size = 0.2) +
+  #scale_fill_gradient(trans = 'log10', low = "orange", high = "blue") +
+  scale_fill_viridis_c(trans = 'log10') +
+  labs(x = "Latitude (in decimal degress)",
+       y = "Longitude (in decimal degrees)",
+       #title = "Map of the United States",
+       title = "WESTERN CORDILLERA ECOREGION IN THE US")
+
+st_crs(ecoregion)
+st_crs(usa)
+ecoregion <- st_transform(ecoregion, st_crs(usa))
+
+```
+
+## Looking at the whole US territory fire events 
+
+```{r}
+US_ecoregion <- read_sf("~/Downloads/mtbs_perimeter_data/mtbs_perims_DD.shp") %>%
+  mutate(observation_date = as_date(Ig_Date),
+         decade = round(decimal_date(observation_date), -1))
+
+unique(US_ecoregion$decade) # 1980 1990 2000 2010 2020
+
+ggplot(usamap) +
+  geom_polygon( aes(x=long, y = lat, group=group), color =  'lightgrey', fill = 'white') +
+  #borders(usamap, fill = "black") +
+  geom_sf(US_ecoregion, mapping = aes(geometry = geometry),  fill = 'orange', color = 'red', size = 0.2) +
+  #scale_fill_gradient(trans = 'log10', low = "orange", high = "blue") +
+  scale_fill_viridis_c(trans = 'log10') +
+  labs(x = "Latitude (in decimal degress)",
+       y = "Longitude (in decimal degrees)",
+       #title = "Map of the United States"
+       )
+
+USA <- st_as_sf(map('state', plot = FALSE, fill = TRUE))
+st_crs(US_ecoregion)
+st_crs(USA)
+US_ecoregion <- st_transform(US_ecoregion, st_crs(USA))
+
+USA <- st_transform(USA, st_crs(US_ecoregion))
+
+# trying to animate showing trend over decades for the fire events
+animation <- ggplot() +
+  #geom_polygon( aes(x=long, y = lat, group=group), color =  'lightgrey', fill = 'white') +
+  geom_sf(USA, mapping = aes(geometry = geom), color = 'lightgrey', fill = 'white') +
+  #borders(usamap, fill = "black") +
+  geom_sf(US_ecoregion, mapping = aes(geometry = geometry), color = 'red', size = 0.2) +
+  #scale_fill_gradient(trans = 'log10', low = "orange", high = "blue") +
+  #scale_fill_viridis_c(trans = 'log10') +
+  #labs(x = "Latitude (in decimal degress)",
+  #    y = "Longitude (in decimal degrees)") +
+  #theme(axis.text = element_text(size = 12),
+  #      axis.title = element_text(size = 14)) +
+  facet_wrap(~decade)             
+  # coord_sf(crs = 'EPSG:4326', datum = NA) +
+  # coord_quickmap() +
+  # transition_states(decade) +
+  # enter_fade() +
+  # exit_fade()
+
+USA <- st_set_crs(USA, 4326)
+US_ecoregion <- st_set_crs(US_ecoregion, 4326)
+st_crs(US_ecoregion)
+st_crs(USA)
+
+animation <- ggplot() +
+  #geom_polygon( aes(x=long, y = lat, group=group), color =  'lightgrey', fill = 'white') +
+  geom_sf(USA, mapping = aes(geometry = geom), color = 'lightgrey', fill = 'white') +
+  #borders(usamap, fill = "black") +
+  geom_sf(US_ecoregion, mapping = aes(geometry = geometry),  fill = 'orange', color = 'red', size = 0.2) +
+  #scale_fill_gradient(trans = 'log10', low = "orange", high = "blue") +
+  #scale_fill_viridis_c(trans = 'log10') +
+  labs(x = "Latitude (in decimal degress)",
+       y = "Longitude (in decimal degrees)") +
+  # theme(axis.text = element_text(size = 12),
+  #       axis.title = element_text(size = 14)) +
+  #facet_wrap(~decade) +            
+  #coord_sf(crs = 'EPSG:4326', datum = NA) +
+  #coord_quickmap() +
+  transition_time(decade,  transition_length = 2, state_length = 1) +
+  enter_fade() +
+  exit_fade()
+
+animate(animation, height = 1000, width = 1000,
+        #fps = 4,  
+        renderer = gifski_renderer())
+
+devtools::install_version("gganimate", version = '1.0.7')
+```
+
+```{r categorizing incident type}
+ggplot() +
+  #geom_polygon( aes(x=long, y = lat, group=group), color =  'lightgrey', fill = 'white') +
+  geom_sf(USA, mapping = aes(geometry = geom), color = 'lightgrey', fill = 'white') +
+  #borders(usamap, fill = "black") +
+  geom_sf(US_ecoregion, mapping = aes(geometry = geometry),  fill = 'orange', color = 'red', size = 0.2) +
+  #scale_fill_gradient(trans = 'log10', low = "orange", high = "blue") +
+  #scale_fill_viridis_c(trans = 'log10') +
+  labs(x = "Latitude (in decimal degress)",
+       y = "Longitude (in decimal degrees)") +
+  theme(axis.text = element_text(size = 12),
+        axis.title = element_text(size = 14)) +
+  facet_wrap(~Incid_Type)
+
 
 ```
 
