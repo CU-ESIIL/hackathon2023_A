@@ -10,13 +10,21 @@ format:
 #| echo: false
 
 knitr::opts_chunk$set(fig.align = "center")
+
+Sys.setenv("PROJ_LIB" = "/opt/conda/envs/earth-analytics-python/share/proj")
 ```
 
 ```{r}
 # Specify required packages
 pkgs_required <- c(
   "dplyr",
+  "gdalcubes",
+  "ggplot2",
+  "rnaturalearth",
+  "sf",
+  "stars",
   "tibble",
+  "tidyr",
   "rstac"
 )
 ```
@@ -26,6 +34,8 @@ pkgs_required <- c(
 
 # Check installed packages
 pkgs_installed <- installed.packages()[ , 1]
+
+# Install gdalcubes via terminal if needed: mamba install r-gdalcubes
 
 # Check packages that need to be installed
 pkgs_to_install <- pkgs_required[!(pkgs_required %in% pkgs_installed)]
@@ -41,10 +51,54 @@ if (length(pkgs_to_install) > 0) {
 invisible(sapply(pkgs_required, library, character.only = TRUE))
 ```
 
-Specify boundary for retrieving satellite imagery:
+Specify boundary for retrieving satellite imagery. For now, we will focus on the ecoregion containing the Southern Rocky Mountains:
 
 ```{r}
-bounds <- c(xmin = -109, ymin = 37, xmax = -102, ymax = 41)
+# Download shapefile for Level II ecoregions
+shp <- "downloads/na_cec_eco_l2/NA_CEC_Eco_Level2.shp"
+if (!file.exists(shp)) {
+  temp <- tempfile("ecoregions", fileext = ".zip")
+  download.file(
+    "https://gaftp.epa.gov/EPADataCommons/ORD/Ecoregions/cec_na/na_cec_eco_l2.zip",
+    destfile = temp,
+    method = "wget",
+    extra = "--no-check-certificate",
+    quiet = TRUE
+  )
+  unzip(temp, exdir = "downloads/na_cec_eco_l2")
+}
+
+# Read in ecoregions
+ecoregions <- read_sf(shp)
+
+# Filter to ecoregion of interest
+myregion <- 
+  ecoregions %>%
+  filter(NA_L2NAME == "WESTERN CORDILLERA")
+
+# Get world map
+world <- 
+  map_data("world") %>%
+  st_as_sf(coords = c("long", "lat"), crs = "EPSG:4326") %>%
+  st_transform(crs = st_crs(ecoregions)) %>%
+  group_by(group) %>%
+  summarize(geometry = st_combine(geometry)) %>%
+  st_cast("POLYGON")
+
+# Plot
+bbox <- st_bbox(myregion)
+ggplot() +
+  geom_sf(data = world, fill = "gray90") +
+  geom_sf(data = myregion, fill = "green4") +
+  coord_sf(xlim = c(bbox["xmin"], bbox["xmax"]),
+           ylim = c(bbox["ymin"], bbox["ymax"])) +
+  theme(panel.background = element_rect(fill = "lightblue")) +
+  labs(x = "Latitude",
+       y = "Longitude",
+       title = "WESTERN CORDILLERA ECOREGION")
+
+# Save
+ggsave("figures/map-ecoregion.png", width = 6, height = 9)
 ```
 
 Connect to Element 84's [Earth Search](https://www.element84.com/earth-search/) STAC API:
@@ -63,15 +117,25 @@ Retrieve [Sentinel-2](https://sentinel.esa.int/web/sentinel/copernicus/sentinel-
 
 ```{r}
 # Specify dates
-date_start <- "2020-01-01"
-date_end <- "2020-01-31"
+date_start <- "2020-07-08"
+date_end <- "2020-07-14"
 date_interval <- paste0(c(date_start, date_end), "T00:00:00Z", collapse = "/")
+
+# Define temporary boundary (for proof of concept)
+bbox <- c(xmin = -122, ymin = 39, xmax = -120, ymax = 41)
+
+# Define boundary
+# bbox <- 
+#   myregion %>%
+#   st_transform(crs = "EPSG:4326") %>%
+#   st_bbox()
 
 # Fetch items
 (items <- 
   mystac %>%
   stac_search(collections = "sentinel-2-l2a",
-              bbox = bounds,
+              bbox = c(bbox[["xmin"]], bbox[["ymin"]],
+                       bbox[["xmax"]], bbox[["ymax"]]),
               datetime = date_interval) %>%
   post_request() %>%
   items_fetch(progress = FALSE))
@@ -106,4 +170,41 @@ items <-
 
 Prepare the data cube:
 
-(forthcoming, currently experiencing difficulty installing `gdalcubes`)
+```{r}
+# Create image collection
+imgs <- stac_image_collection(items$features)
+
+# Define data cube view
+v <- cube_view(
+  srs = "EPSG:4326",
+  dx = 1/60,
+  dy = 1/60,
+  dt = "P1D",
+  aggregation = "mean",
+  resampling = "near",
+  extent = imgs
+)
+
+# Build data cube as stars object
+cube <- 
+  imgs %>%
+  raster_cube(v) %>%
+  select_bands(c("coastal", "blue", "green", "red", "rededge1", "rededge2", 
+                 "rededge3", "nir", "nir08", "nir09", "swir16", "swir22")) %>%
+  st_as_stars()
+
+# Convert to data frame
+cube_df <- as.data.frame(cube)
+
+# Summarize data
+cube_df <- 
+  cube_df %>%
+  drop_na() %>%
+  select(-time) %>%
+  group_by(x, y) %>%
+  summarize_at(vars(-group_cols()), mean) %>%
+  ungroup()
+
+# Save
+saveRDS(cube_df, "data/cube_df.rds")
+```
