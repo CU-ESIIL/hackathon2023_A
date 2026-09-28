@@ -32,10 +32,14 @@ library(gtsummary)
 spectral_samples<- readRDS("~/data-store/hackathon2023_A/data/cube_df.rds")
 head(spectral_samples)
 
+# Keep coordinates for mapping/output, but exclude them from spectral clustering
+spectral_values <- spectral_samples %>%
+  select(-x, -y)
+
 set.seed(16338)
 fit_spectra<-vector("list", 50)
 for (i in 1:50) {
-  fit_spectra[[i]] <- kmeans(spectral_samples,iter.max=10000, centers=i, nstart=100)
+  fit_spectra[[i]] <- kmeans(spectral_values,iter.max=10000, centers=i, nstart=100)
 }
 
 #  Evaluate these - how many clusters
@@ -73,7 +77,7 @@ dev.off()
 # 2. Dunn ~ k
 dunn_df<-rep(0,max_clust)
 for (i in 1:max_clust){
-  dunn_df[i]<-dunn(Data=spectral_samples, clusters=fit_spectra[[i]]$cluster)
+  dunn_df[i]<-dunn(Data=spectral_values, clusters=fit_spectra[[i]]$cluster)
 }
 # write.csv(dunn_df, "PATH NAME.csv")
 
