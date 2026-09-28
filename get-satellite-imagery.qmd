@@ -256,7 +256,14 @@ v <- cube_view(
   dt = "P1D",
   aggregation = "mean",
   resampling = "near",
-  extent = imgs
+  extent = list(
+    left= bbox["xmin"],
+    right = bbox["xmax"],
+    bottom= bbox["ymin"],
+    top= bbox["ymax"],
+    t0=date_start,
+    t1=date_end
+  )
 )
 
 # Build data cube as stars object
