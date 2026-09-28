@@ -248,19 +248,25 @@ Prepare the data cube:
 # Create image collection
 imgs <- stac_image_collection(items$features)
 
+bbox_utm <- bbox %>%
+  st_bbox(crs = "EPSG:4326") %>%
+  st_as_sfc() %>%
+  st_transform("EPSG:32610") %>%
+  st_bbox()
+
 # Define data cube view
 v <- cube_view(
-  srs = "EPSG:4326",
-  dx = 1/60,
-  dy = 1/60,
+  srs = "EPSG:32610",
+  dx = 10,
+  dy = 10,
   dt = "P1D",
   aggregation = "mean",
   resampling = "near",
   extent = list(
-    left= bbox["xmin"],
-    right = bbox["xmax"],
-    bottom= bbox["ymin"],
-    top= bbox["ymax"],
+    left= bbox_utm["xmin"],
+    right = bbox_utm["xmax"],
+    bottom= bbox_utm["ymin"],
+    top= bbox_utm["ymax"],
     t0=date_start,
     t1=date_end
   )
