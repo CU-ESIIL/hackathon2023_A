@@ -295,7 +295,7 @@ cube_df <- as.data.frame(cube)
 cube_df <- 
   cube_df %>%
   drop_na() %>%
-  select(-time) %>%
+  select(-any_of("time")) %>%
   group_by(x, y) %>%
   summarize_at(vars(-group_cols()), mean) %>%
   ungroup()
