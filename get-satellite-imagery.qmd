@@ -341,7 +341,7 @@ cube_firepts_df <-
   cube_firepts %>%
   as.data.frame() %>%
   drop_na() %>%
-  select(-time) %>%
+  select(-any_of("time")) %>%
   group_by(geometry) %>%
   summarize_at(vars(-group_cols()), mean) %>%
   ungroup()
