@@ -94,19 +94,38 @@ names(dunn_df_df)<-c("n_clust", "dunn")
 plot(dunn_df_df$n_clust, dunn_df_df$dunn, type="o",xlab="Number of clusters", ylab="Dunn Index")
 dev.off()
 
-# local maxima at
-local_max_dunn<-numeric(0)
-local_max_dunn[1]<-2
-for (i in 2:(max(dunn_df_df$n_clust)-2)){
-  if(dunn_df_df[i,]$dunn>dunn_df_df[i-1,]$dunn & dunn_df_df[i,]$dunn>dunn_df_df[i+1,]$dunn) {
-    local_max_dunn<-c(local_max_dunn, dunn_df_df[i,]$n_clust)
+# Identify local maxima in Dunn index
+local_max_dunn <- numeric(0)
+
+# Check first value (k = 2)
+if (dunn_df_df$dunn[1] > dunn_df_df$dunn[2]) {
+  local_max_dunn <- c(
+    local_max_dunn,
+    dunn_df_df$n_clust[1]
+  )
+}
+
+# Check interior values
+for (i in 2:(nrow(dunn_df_df) - 1)) {
+  if (
+    dunn_df_df$dunn[i] > dunn_df_df$dunn[i - 1] &&
+    dunn_df_df$dunn[i] > dunn_df_df$dunn[i + 1]
+  ) {
+    local_max_dunn <- c(
+      local_max_dunn,
+      dunn_df_df$n_clust[i]
+    )
   }
 }
 
-for (i in (max(dunn_df_df$n_clust)-1)){
-  if(dunn_df_df[i,]$dunn>dunn_df_df[i-1,]$dunn) {
-    local_max_dunn<-c(local_max_dunn, dunn_df_df[i,]$n_clust)
-  }
+# Check final value (k = 50)
+last_i <- nrow(dunn_df_df)
+
+if (dunn_df_df$dunn[last_i] > dunn_df_df$dunn[last_i - 1]) {
+  local_max_dunn <- c(
+    local_max_dunn,
+    dunn_df_df$n_clust[last_i]
+  )
 }
 
 local_max_dunn
