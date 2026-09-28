@@ -272,12 +272,20 @@ v <- cube_view(
   )
 )
 
+#define bands
+bands <- c(
+  "coastal", "blue", "green", "red",
+  "rededge1", "rededge2", "rededge3",
+  "nir", "nir08", "nir09",
+  "swir16", "swir22"
+)
+
 # Build data cube as stars object
 cube <- 
   imgs %>%
   raster_cube(v) %>%
-  select_bands(c("coastal", "blue", "green", "red", "rededge1", "rededge2", 
-                 "rededge3", "nir", "nir08", "nir09", "swir16", "swir22")) %>%
+  select_bands(bands) %>%
+  reduce_time(paste0("mean(", bands, ")")) %>%
   st_as_stars()
 
 # Convert to data frame
