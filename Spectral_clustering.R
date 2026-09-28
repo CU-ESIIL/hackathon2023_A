@@ -27,7 +27,8 @@ library(RColorBrewer)
 library(ggpubr)
 library(gtsummary)
 
-# kmeans objects for a range of cluster numbers - scaled and centered data
+# kmeans objects for a range of cluster numbers
+# Spectral bands are used on their original reflectance scale (not standardized)
 # dataframe with spectral values of each pixel (called spectral_samples below)
 spectral_samples<- readRDS("~/data-store/hackathon2023_A/data/cube_df.rds")
 head(spectral_samples)
