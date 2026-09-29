@@ -11,7 +11,8 @@ format:
 
 knitr::opts_chunk$set(fig.align = "center")
 
-Sys.setenv("PROJ_LIB" = "/opt/conda/envs/earth-analytics-python/share/proj")
+# PROJ path for CyVerse conda environment
+Sys.setenv("PROJ_LIB" = "/opt/conda/share/proj")
 ```
 
 ```{r}
@@ -60,11 +61,10 @@ shp <- "downloads/na_cec_eco_l2/NA_CEC_Eco_Level2.shp"
 if (!file.exists(shp)) {
   temp <- tempfile("ecoregions", fileext = ".zip")
   download.file(
-    "https://gaftp.epa.gov/EPADataCommons/ORD/Ecoregions/cec_na/na_cec_eco_l2.zip",
+  "https://dmap-prod-oms-edc.s3.us-east-1.amazonaws.com/ORD/Ecoregions/cec_na/na_cec_eco_l2.zip",
     destfile = temp,
-    method = "wget",
-    extra = "--no-check-certificate",
-    quiet = TRUE
+    method = "libcurl",
+    mode = "wb"
   )
   unzip(temp, exdir = "downloads/na_cec_eco_l2")
 }
@@ -88,9 +88,8 @@ if (!file.exists(shp2)) {
   download.file(
     "https://edcintl.cr.usgs.gov/downloads/sciweb1/shared/MTBS_Fire/data/composite_data/burned_area_extent_shapefile/mtbs_perimeter_data.zip",
     destfile = temp,
-    method = "wget",
-    extra = "--no-check-certificate",
-    quiet = TRUE
+    method = "libcurl",
+    mode = "wb"
   )
   unzip(temp, exdir = "downloads/mtbs_perimeter_data")
 }
@@ -104,7 +103,7 @@ fires <-
 myyear <- 2021
 fires <- 
   fires %>%
-  filter(year(Ig_Date) == myyear)
+  filter(year(ig_date) == myyear)
 ```
 
 Create map:
@@ -202,6 +201,14 @@ items <-
 Try visualizing some items:
 
 ```{r}
+
+# Create directory for downloaded Sentinel-2 assets if needed
+dir.create(
+  "downloads/sentinel-2",
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
 # Specify item to check
 myitem <- 20
 
@@ -272,6 +279,8 @@ v <- cube_view(
   )
 )
 
+
+
 #define bands
 bands <- c(
   "coastal", "blue", "green", "red",
@@ -307,7 +316,10 @@ saveRDS(cube_df, "data/cube_df.rds")
 Let's do some preliminary exploration of the data cube:
 
 ```{r}
+#| eval: false
+
 # Download MTBS fire ocurrences
+
 shp3 <- "downloads/mtbs_fod_pts_data/mtbs_FODpoints_DD.shp"
 if (!file.exists(shp3)) {
   temp <- tempfile("fires", fileext = ".zip")
