@@ -1,7 +1,26 @@
 # Generate 10 m Sentinel-2 spectral data cube
 # Background version of get-satellite-imagery.qmd
 
-Sys.setenv("PROJ_LIB" = "/opt/conda/share/proj")
+# Environment:
+#   mamba env create -f environment.yml
+#   conda activate sentinel-cube
+#
+# Run:
+#   Rscript get-satellite-imagery-background.R
+#
+# Successful CyVerse run:
+#   R 4.5.3
+#   4 cores, 128 GiB RAM
+
+
+# Sys.setenv("PROJ_LIB" = "/opt/conda/share/proj")
+conda_prefix <- Sys.getenv("CONDA_PREFIX")
+
+if (nzchar(conda_prefix)) {
+  Sys.setenv(
+    "PROJ_LIB" = file.path(conda_prefix, "share", "proj")
+  )
+}
 
 suppressPackageStartupMessages({
   library(dplyr)

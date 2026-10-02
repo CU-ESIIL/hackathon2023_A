@@ -1,0 +1,13 @@
+name: sentinel-cube
+
+channels:
+  - conda-forge
+
+dependencies:
+  - r-base=4.5.3
+  - r-gdalcubes
+  - r-rstac
+  - r-sf
+  - r-stars
+  - r-dplyr
+  - r-tidyr
