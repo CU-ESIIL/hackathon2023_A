@@ -7,9 +7,9 @@
 #   data/cube_df.rds
 #
 # Outputs:
-#   data/kmeans50_sample_fit.rds
-#   data/kmeans50_centers.csv
-#   data/spectral_clusters_k50.tif
+#   data/kmeans15_sample_fit_100k.rds
+#   data/kmeans15_centers_100k.csv
+#   data/spectral_clusters_k15.tif
 
 library(terra)
 
@@ -19,7 +19,7 @@ library(terra)
 
 input_file <- "data/cube_df.rds"
 
-k <- 50L
+k <- 15L
 sample_n <- 100000L
 seed <- 16338L
 nstart <- 100L
@@ -29,9 +29,9 @@ iter_max <- 10000L
 # 20 rows = 351,400 pixels for this cube.
 rows_per_block <- 20L
 
-fit_file <- "data/kmeans50_sample_fit.rds"
-centers_file <- "data/kmeans50_centers.csv"
-cluster_raster_file <- "data/spectral_clusters_k50.tif"
+fit_file <- "data/kmeans15_sample_fit_100k.rds"
+centers_file <- "data/kmeans15_centers_100k.csv"
+cluster_raster_file <- "data/spectral_clusters_k15.tif"
 
 # -------------------------------------------------------------------
 # Read cube
@@ -191,7 +191,7 @@ r <- rast(
   crs = "EPSG:32610"
 )
 
-names(r) <- "kmeans50"
+names(r) <- "kmeans15"
 
 write_info <- writeStart(
   r,

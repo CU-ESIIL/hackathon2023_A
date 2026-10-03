@@ -11,3 +11,5 @@ dependencies:
   - r-stars
   - r-dplyr
   - r-tidyr
+  - r-terra
+  - r-rcpp
