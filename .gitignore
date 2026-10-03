@@ -9,3 +9,14 @@
 
 # File system
 downloads/*
+# Spectral diversity generated outputs
+*.log
+*.pid
+data/kmeans*_sample_fit*.rds
+data/kmeans*_centers*.csv
+data/k_selection_diagnostics.rds
+data/spectral_clusters_*.tif
+data/spectral_richness_*.tif
+
+# Experimental scripts not part of final workflow
+Spectral_clustering_500k.R
